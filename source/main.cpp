@@ -20,7 +20,7 @@
 
 WUPS_PLUGIN_NAME("Wii U Server Selector");
 WUPS_PLUGIN_DESCRIPTION("Automatically select and switch server environments");
-WUPS_PLUGIN_VERSION("v1.0.2");
+WUPS_PLUGIN_VERSION("v1.0.3");
 WUPS_PLUGIN_AUTHOR("hadley557");
 WUPS_PLUGIN_LICENSE("GPLv2");
 
@@ -54,7 +54,7 @@ static std::vector<ServerInfo>& GetDetectedServers() {
 
 static char pendingServerPath[256] = {0};
 static OSThread workerThread;
-alignas(8) static uint8_t workerStack[4096];
+alignas(8) static uint8_t workerStack[8192];
 
 void ScanServers() {
     auto& detectedServers = GetDetectedServers();
@@ -78,8 +78,6 @@ void ScanServers() {
     closedir(dir);
 }
 
-// Check if a server is active by validating that every file inside the server directory 
-// matches the corresponding installed file's size exactly.
 bool IsServerActive(const std::string& serverPath) {
     DIR* dir = opendir(serverPath.c_str());
     if (!dir) return false;
@@ -104,7 +102,6 @@ bool IsServerActive(const std::string& serverPath) {
             std::string srcPath = serverPath + "/" + filename;
             struct stat srcSt, targetSt;
             
-            // Both files must exist and their sizes must match precisely
             if (stat(srcPath.c_str(), &srcSt) != 0 || stat(targetPath.c_str(), &targetSt) != 0 || srcSt.st_size != targetSt.st_size) {
                 active = false;
                 break;
@@ -143,8 +140,8 @@ bool CopyFile(const std::string& src, const std::string& dest) {
 }
 
 void WipeAllServerFiles() {
-    auto& detectedServers = GetDetectedServers();
-    for (const auto& server : detectedServers) {
+    auto detectedServersCopy = GetDetectedServers();
+    for (const auto& server : detectedServersCopy) {
         DIR* subDir = opendir(server.path.c_str());
         if (!subDir) continue;
 
@@ -169,7 +166,6 @@ void WipeAllServerFiles() {
 }
 
 void InstallServer(const std::string& serverPath) {
-    ScanServers();
     WipeAllServerFiles();
 
     DIR* dir = opendir(serverPath.c_str());
@@ -220,12 +216,13 @@ static int32_t ServerAction_getCurrentValueSelectedDisplay(void *context, char *
 static void ServerAction_onInput(void *context, WUPSConfigSimplePadData input) {
     auto *item = (ServerActionItem *) context;
     if (item->isCurrent) {
-        return; // Do nothing if it's already the active server
+        return; 
     }
     if (input.buttons_d & WUPS_CONFIG_BUTTON_A) {
         strncpy(pendingServerPath, item->serverPath.c_str(), sizeof(pendingServerPath) - 1);
-        OSCreateThread(&workerThread, WorkerThreadProc, 0, nullptr, workerStack + sizeof(workerStack), sizeof(workerStack), 16, 0);
-        OSResumeThread(&workerThread);
+        if (OSCreateThread(&workerThread, WorkerThreadProc, 0, nullptr, workerStack + sizeof(workerStack), sizeof(workerStack), 16, OS_THREAD_ATTRIB_DETACHED)) {
+            OSResumeThread(&workerThread);
+        }
     }
 }
 
