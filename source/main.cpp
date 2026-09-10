@@ -20,7 +20,7 @@
 
 WUPS_PLUGIN_NAME("Wii U Server Selector");
 WUPS_PLUGIN_DESCRIPTION("Automatically select and switch server environments");
-WUPS_PLUGIN_VERSION("v1.0.3");
+WUPS_PLUGIN_VERSION("v1.0.2.2");
 WUPS_PLUGIN_AUTHOR("hadley557");
 WUPS_PLUGIN_LICENSE("GPLv2");
 
