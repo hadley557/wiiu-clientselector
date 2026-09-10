@@ -1,4 +1,14 @@
-Wii U Server Selector
+Wii U Server Selector (Fork)
+
+## IMPORTANT NOTICE:
+
+This is a fork of wiiu-serverselector, the network download location is different.
+located in sd:/wiiu/wiiu-clients/{NetworkName}/ ---> {filename}.wps and {filename}.wms
+you may download Protarium Network and Pretendo Network directly from the plugin.
+if you have issues contact me in the Protarium Network Discord Server!
+
+## Don't follow this btw:
+it's old instructions i just wanted to keep it for the original dev of wiiu-serverselector.
 
 Lets you swap between different Wii U servers (ex. Pretendo, Protarium) with a menu in the home menu. Make a folder in the root of your SD Card called "wiiu-plugins" and put your .wms and .wps files into a folder inside the "wiiu-plugins" folder, directly into that folder. Still a work in progress, built off of the "evWii" plugin code.
   

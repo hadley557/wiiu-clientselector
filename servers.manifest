@@ -1,0 +1,16 @@
+# Wii U Server Selector downloader manifest v1
+# Format:
+# server|name|version|description
+# file|server-name|filename|https-url|sha256
+
+server|Protarium|3.1.0|Protarium Network Plugins
+file|Protarium|Inkay-pretendo.wps|https://github.com/NoobieDoesModding/wiiu-serverselector/releases/download/Release/Inkay-pretendo.wps|8c0c3d4324e35b685b44acdfd352fd516a5c7aa77bbefc27a4558aac54ad2ed7
+file|Protarium|Inkay-pretendo.wms|https://github.com/NoobieDoesModding/wiiu-serverselector/releases/download/Release/Inkay-pretendo.wms|0f01440676e4de04c53086b26616d8d33b665a054bad99c7dd286adfa764968f
+
+server|Pretendo|3.0.0|Pretendo Network Plugins
+file|Pretendo|Inkay-pretendo.wms|https://github.com/NoobieDoesModding/wiiu-serverselector/releases/download/Releas/Inkay-pretendo.wms|5b4d5eb31db1a1b35bf079ba9805acd8c324cc2674ef47ec9a99c88fe53b9369
+file|Pretendo|Inkay-pretendo.wps|https://github.com/NoobieDoesModding/wiiu-serverselector/releases/download/Releas/Inkay-pretendo.wps|e97b27c73b00bd15486f1d32f2c7597fd8109831fd7cf413f5290ac5c0a8df9a
+
+server|Roseverse|3.1.0|Roséverse
+file|Roseverse|Inkay-pretendo.wms|https://github.com/NoobieDoesModding/wiiu-serverselector/releases/download/Roseverse/Inkay-pretendo.wms|27dd33ac9d4122d7a8aa4e55a08727ab143a91dad76457bfd1747626d7af67c5
+file|Roseverse|Inkay-pretendo.wps|https://github.com/NoobieDoesModding/wiiu-serverselector/releases/download/Roseverse/Inkay-pretendo.wps|d688f00b5dfe257e38d63db0007363f19c7e42203899bda98a15302243d84f50

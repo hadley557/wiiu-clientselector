@@ -18,48 +18,50 @@
 #include <coreinit/launch.h>
 #include <sysapp/launch.h>
 
-WUPS_PLUGIN_NAME("Wii U Server Selector");
-WUPS_PLUGIN_DESCRIPTION("Automatically select and switch server environments");
-WUPS_PLUGIN_VERSION("v1.0.2");
-WUPS_PLUGIN_AUTHOR("hadley557");
+#include "server_downloader.hpp"
+
+WUPS_PLUGIN_NAME("Wii U Server Selector/Downloader");
+WUPS_PLUGIN_DESCRIPTION("Downloads and automatically selects downloaded Miiverse servers");
+WUPS_PLUGIN_VERSION("v1.0.0");
+WUPS_PLUGIN_AUTHOR("hadley557 and NoobieDoesModding");
 WUPS_PLUGIN_LICENSE("GPLv2");
 
-WUPS_USE_STORAGE("WiiUServerSelector");
+WUPS_USE_STORAGE("WiiUClientSelector");
 WUPS_USE_WUT_DEVOPTAB();
 
 WUPSConfigAPICallbackStatus ConfigMenuOpenedCallback(WUPSConfigCategoryHandle rootHandle);
 void ConfigMenuClosedCallback();
 
-#define SERVERS_DIR "/vol/external01/wiiu-servers"
+#define CLIENTS_DIR "/vol/external01/wiiu/wiiu-clients"
 #define MODULES_DIR "/vol/external01/wiiu/environments/aroma/modules"
 #define PLUGINS_DIR "/vol/external01/wiiu/environments/aroma/plugins"
 
-struct ServerInfo {
+struct ClientInfo {
     std::string name;
     std::string path;
     std::string identifier;
 };
 
-struct ServerActionItem {
+struct ClientActionItem {
     WUPSConfigItemHandle handle;
     char *identifier;
-    std::string serverPath;
+    std::string clientPath;
     bool isCurrent;
 };
 
-static std::vector<ServerInfo>& GetDetectedServers() {
-    static std::vector<ServerInfo> instance;
+static std::vector<ClientInfo>& GetDetectedClients() {
+    static std::vector<ClientInfo> instance;
     return instance;
 }
 
-static char pendingServerPath[256] = {0};
+static char pendingClientPath[256] = {0};
 static OSThread workerThread;
 alignas(8) static uint8_t workerStack[4096];
 
-void ScanServers() {
-    auto& detectedServers = GetDetectedServers();
-    detectedServers.clear();
-    DIR* dir = opendir(SERVERS_DIR);
+void ScanClients() {
+    auto& detectedClients = GetDetectedClients();
+    detectedClients.clear();
+    DIR* dir = opendir(CLIENTS_DIR);
     if (!dir) return;
 
     struct dirent* entry;
@@ -67,10 +69,10 @@ void ScanServers() {
         if (entry->d_type == DT_DIR) {
             std::string name = entry->d_name;
             if (name != "." && name != "..") {
-                detectedServers.push_back({
+                detectedClients.push_back({
                     name, 
-                    std::string(SERVERS_DIR) + "/" + name,
-                    "server_" + name
+                    std::string(CLIENTS_DIR) + "/" + name,
+                    "client_" + name
                 });
             }
         }
@@ -78,10 +80,10 @@ void ScanServers() {
     closedir(dir);
 }
 
-// Check if a server is active by validating that every file inside the server directory 
+// Check if a client is active by validating that every file inside the client directory 
 // matches the corresponding installed file's size exactly.
-bool IsServerActive(const std::string& serverPath) {
-    DIR* dir = opendir(serverPath.c_str());
+bool IsClientActive(const std::string& clientPath) {
+    DIR* dir = opendir(clientPath.c_str());
     if (!dir) return false;
 
     bool active = true;
@@ -101,7 +103,7 @@ bool IsServerActive(const std::string& serverPath) {
                 continue;
             }
 
-            std::string srcPath = serverPath + "/" + filename;
+            std::string srcPath = clientPath + "/" + filename;
             struct stat srcSt, targetSt;
             
             // Both files must exist and their sizes must match precisely
@@ -142,10 +144,10 @@ bool CopyFile(const std::string& src, const std::string& dest) {
     return writtenBytes == size;
 }
 
-void WipeAllServerFiles() {
-    auto& detectedServers = GetDetectedServers();
-    for (const auto& server : detectedServers) {
-        DIR* subDir = opendir(server.path.c_str());
+void WipeAllClientFiles() {
+    auto& detectedClients = GetDetectedClients();
+    for (const auto& client : detectedClients) {
+        DIR* subDir = opendir(client.path.c_str());
         if (!subDir) continue;
 
         struct dirent* fileEntry;
@@ -168,11 +170,11 @@ void WipeAllServerFiles() {
     }
 }
 
-void InstallServer(const std::string& serverPath) {
-    ScanServers();
-    WipeAllServerFiles();
+void InstallClient(const std::string& clientPath) {
+    ScanClients();
+    WipeAllClientFiles();
 
-    DIR* dir = opendir(serverPath.c_str());
+    DIR* dir = opendir(clientPath.c_str());
     if (!dir) return;
 
     struct dirent* entry;
@@ -180,7 +182,7 @@ void InstallServer(const std::string& serverPath) {
         std::string filename = entry->d_name;
         if (filename == "." || filename == "..") continue;
 
-        std::string srcPath = serverPath + "/" + filename;
+        std::string srcPath = clientPath + "/" + filename;
         if (filename.length() > 4) {
             std::string ext = filename.substr(filename.length() - 4);
             if (ext == ".wms") {
@@ -196,19 +198,19 @@ void InstallServer(const std::string& serverPath) {
 }
 
 static int WorkerThreadProc(int argc, const char **argv) {
-    InstallServer(std::string(pendingServerPath));
+    InstallClient(std::string(pendingClientPath));
     OSSleepTicks(OSMillisecondsToTicks(1500));
     OSLaunchTitlev(OS_TITLE_ID_REBOOT, 0, NULL);
     return 0;
 }
 
-static int32_t ServerAction_getCurrentValueDisplay(void *context, char *out_buf, int32_t out_size) {
+static int32_t ClientAction_getCurrentValueDisplay(void *context, char *out_buf, int32_t out_size) {
     if (out_size > 0) out_buf[0] = '\0';
     return 0;
 }
 
-static int32_t ServerAction_getCurrentValueSelectedDisplay(void *context, char *out_buf, int32_t out_size) {
-    auto *item = (ServerActionItem *) context;
+static int32_t ClientAction_getCurrentValueSelectedDisplay(void *context, char *out_buf, int32_t out_size) {
+    auto *item = (ClientActionItem *) context;
     if (item->isCurrent) {
         if (out_size > 0) out_buf[0] = '\0';
     } else {
@@ -217,36 +219,36 @@ static int32_t ServerAction_getCurrentValueSelectedDisplay(void *context, char *
     return 0;
 }
 
-static void ServerAction_onInput(void *context, WUPSConfigSimplePadData input) {
-    auto *item = (ServerActionItem *) context;
+static void ClientAction_onInput(void *context, WUPSConfigSimplePadData input) {
+    auto *item = (ClientActionItem *) context;
     if (item->isCurrent) {
-        return; // Do nothing if it's already the active server
+        return; // Do nothing if it's already the active client
     }
     if (input.buttons_d & WUPS_CONFIG_BUTTON_A) {
-        strncpy(pendingServerPath, item->serverPath.c_str(), sizeof(pendingServerPath) - 1);
+        strncpy(pendingClientPath, item->clientPath.c_str(), sizeof(pendingClientPath) - 1);
         OSCreateThread(&workerThread, WorkerThreadProc, 0, nullptr, workerStack + sizeof(workerStack), sizeof(workerStack), 16, 0);
         OSResumeThread(&workerThread);
     }
 }
 
-static void ServerAction_Cleanup(ServerActionItem *item) {
+static void ClientAction_Cleanup(ClientActionItem *item) {
     if (!item) return;
     free(item->identifier);
     delete item;
 }
 
-static void ServerAction_onDelete(void *context) {
-    ServerAction_Cleanup((ServerActionItem *) context);
+static void ClientAction_onDelete(void *context) {
+    ClientAction_Cleanup((ClientActionItem *) context);
 }
 
-WUPSConfigAPIStatus ServerAction_Create(const char *identifier, const char *displayName, const std::string& serverPath, bool isCurrent, WUPSConfigItemHandle *outHandle) {
+WUPSConfigAPIStatus ClientAction_Create(const char *identifier, const char *displayName, const std::string& clientPath, bool isCurrent, WUPSConfigItemHandle *outHandle) {
     if (outHandle == nullptr) return WUPSCONFIG_API_RESULT_INVALID_ARGUMENT;
 
-    auto *item = new (std::nothrow) ServerActionItem();
+    auto *item = new (std::nothrow) ClientActionItem();
     if (item == nullptr) return WUPSCONFIG_API_RESULT_OUT_OF_MEMORY;
 
     item->identifier = identifier ? strdup(identifier) : nullptr;
-    item->serverPath = serverPath;
+    item->clientPath = clientPath;
     item->isCurrent = isCurrent;
 
     std::string finalDisplayName = displayName;
@@ -255,15 +257,15 @@ WUPSConfigAPIStatus ServerAction_Create(const char *identifier, const char *disp
     }
 
     WUPSConfigAPIItemCallbacksV2 callbacks = {
-        .getCurrentValueDisplay         = &ServerAction_getCurrentValueDisplay,
-        .getCurrentValueSelectedDisplay = &ServerAction_getCurrentValueSelectedDisplay,
+        .getCurrentValueDisplay         = &ClientAction_getCurrentValueDisplay,
+        .getCurrentValueSelectedDisplay = &ClientAction_getCurrentValueSelectedDisplay,
         .onSelected                     = nullptr,
         .restoreDefault                 = nullptr,
         .isMovementAllowed              = nullptr,
         .onCloseCallback                = nullptr,
-        .onInput                        = &ServerAction_onInput,
+        .onInput                        = &ClientAction_onInput,
         .onInputEx                      = nullptr,
-        .onDelete                       = &ServerAction_onDelete
+        .onDelete                       = &ClientAction_onDelete
     };
 
     WUPSConfigAPIItemOptionsV2 options = {
@@ -274,7 +276,7 @@ WUPSConfigAPIStatus ServerAction_Create(const char *identifier, const char *disp
 
     WUPSConfigAPIStatus err;
     if ((err = WUPSConfigAPI_Item_Create(options, &item->handle)) != WUPSCONFIG_API_RESULT_SUCCESS) {
-        ServerAction_Cleanup(item);
+        ClientAction_Cleanup(item);
         return err;
     }
 
@@ -284,25 +286,29 @@ WUPSConfigAPIStatus ServerAction_Create(const char *identifier, const char *disp
 
 INITIALIZE_PLUGIN()
 {
-    ScanServers(); 
-    WUPSConfigAPIOptionsV1 configOptions = {.name = "Wii U Server Selector"};
+    ScanClients(); 
+    WUPSConfigAPIOptionsV1 configOptions = {.name = "Wii U Client Selector"};
     WUPSConfigAPI_Init(configOptions, ConfigMenuOpenedCallback, ConfigMenuClosedCallback);
 }
 
 WUPSConfigAPICallbackStatus ConfigMenuOpenedCallback(WUPSConfigCategoryHandle rootHandle)
 {
-    auto& detectedServers = GetDetectedServers();
+    auto& detectedClients = GetDetectedClients();
 
-    if (detectedServers.empty()) {
+    // Small integration point: the downloader is implemented entirely in
+    // server_downloader.cpp and only receives the existing config root here.
+    ServerDownloader::AddDownloadServersMenu(rootHandle);
+
+    if (detectedClients.empty()) {
         WUPSConfigItemHandle noneHandle;
-        if (ServerAction_Create("server_none", "No servers found", "", false, &noneHandle) == WUPSCONFIG_API_RESULT_SUCCESS) {
+        if (ClientAction_Create("client_none", "No clients found", "", false, &noneHandle) == WUPSCONFIG_API_RESULT_SUCCESS) {
             WUPSConfigAPI_Category_AddItem(rootHandle, noneHandle);
         }
     } else {
-        for (size_t i = 0; i < detectedServers.size(); i++) {
-            bool isCurrent = IsServerActive(detectedServers[i].path);
+        for (size_t i = 0; i < detectedClients.size(); i++) {
+            bool isCurrent = IsClientActive(detectedClients[i].path);
             WUPSConfigItemHandle itemHandle;
-            if (ServerAction_Create(detectedServers[i].identifier.c_str(), detectedServers[i].name.c_str(), detectedServers[i].path, isCurrent, &itemHandle) == WUPSCONFIG_API_RESULT_SUCCESS) {
+            if (ClientAction_Create(detectedClients[i].identifier.c_str(), detectedClients[i].name.c_str(), detectedClients[i].path, isCurrent, &itemHandle) == WUPSCONFIG_API_RESULT_SUCCESS) {
                 WUPSConfigAPI_Category_AddItem(rootHandle, itemHandle);
             }
         }
